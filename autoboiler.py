@@ -100,6 +100,7 @@ class Controller:
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.enableDynamicPayloads()
+        self.radio.printDetails()
         self.radio.openWritingPipe(pipes[0])
         self.radio.openReadingPipe(1, pipes[1])
 
@@ -110,7 +111,8 @@ class Controller:
                 recv_buffer = self.recv(30)
                 self.radio.stopListening()
                 self.db.write(0, self.temperature.read())
-                self.db.write(1, self.temperature.calcTemp(recv_buffer))
+                if recv_buffer:
+			self.db.write(1, self.temperature.calcTemp(recv_buffer))
         except KeyboardInterrupt:
             pass
 
@@ -127,6 +129,8 @@ class Controller:
 
     def cleanup(self):
         self.radio.end()
+        self.db.close()
+        self.temperature.cleanup()
 
 
 class DBWriter:
@@ -137,7 +141,7 @@ class DBWriter:
         self.c.execute('''CREATE TABLE IF NOT EXISTS temperature (date datetime, sensor integer, temperature real)''')
 
     def write(self, idx, value):
-        print datetime.datetime.now(), value, '        \r',
+        print ' '*idx*20, datetime.datetime.now(), idx, value, '        \r',
         sys.stdout.flush()
         self.c.execute('''insert into temperature values (?, ?, ?)''',
                        (datetime.datetime.now(), idx, value))
