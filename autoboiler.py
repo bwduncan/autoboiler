@@ -7,6 +7,8 @@ import time
 import spidev
 import argparse
 import os
+import sqlite3
+import datetime
 
 
 pipes = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
@@ -31,73 +33,118 @@ class Temperature:
         self.spi = spidev.SpiDev()
         self.spi.open(major, minor)
 
-    def read(self):
-        return self._calcTemp(self.spi.xfer2([0, 0]))
+    def rawread(self):
+        return self.spi.xfer2([0, 0])
 
-    def _calcTemp(self, buf):
+    def read(self):
+        return self.calcTemp(self.rawread())
+
+    def calcTemp(self, buf):
         return (((buf[0] << 8) | buf[1]) >> 3) * 0.0625
 
     def cleanup(self):
         self.spi.close()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.spi.close()
+
 
 class Boiler:
-    def __init__(self, major, minor, ce_pin, irq_pin, relay, temperature):
+    def __init__(self, major, minor, ce_pin, irq_pin, temperature, relay):
         self.relay = relay
         self.temperature = temperature
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
-        # self.radio.enableDynamicPayloads()
-        self.radio.setPayloadSize(1)
+        self.radio.enableDynamicPayloads()
         self.radio.printDetails()
         self.radio.openWritingPipe(pipes[0])
         self.radio.openReadingPipe(1, pipes[1])
         self.radio.setAutoAck(1)
 
     def run(self):
-        self.radio.startListening()
         while True:
             try:
-                pipe = [0]
-                while not self.radio.available(pipe):
-                    time.sleep(10000/1e6)
-                recv_buffer = []
-                self.radio.read(recv_buffer)
-                print recv_buffer
+                self.radio.startListening()
+                recv_buffer = self.recv(30)
                 for byte in recv_buffer:
                     pin = self.relay.pins[byte >> 1]
                     state = byte & 0x1
                     self.relay.output(pin, state)
+                self.radio.StopListening()
+                self.radio.write(self.temperature.rawread())
             except Exception:
                 pass
-            finally:
-                self.relay.cleanup()
-        self.radio.stopListening()
+
+    def recv(self, timeout=None):
+        end = time.time() + timeout
+        pipe = [0]
+        while not self.radio.available(pipe) and (timeout is None or time.time() < end):
+            time.sleep(10000/1e6)
+        if self.radio.available(pipe):
+            recv_buffer = []
+            self.radio.read(recv_buffer)
+            return recv_buffer
+        return []
 
     def cleanup(self):
         self.radio.end()
 
 
 class Controller:
-    def __init__(self, major, minor, ce_pin, irq_pin, temperature):
+    def __init__(self, major, minor, ce_pin, irq_pin, temperature, db):
+        self.temperature = temperature
+        self.db = db
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
-        #self.radio.enableDynamicPayloads()
-        self.radio.setPayloadSize(1)
+        self.radio.enableDynamicPayloads()
         self.radio.openWritingPipe(pipes[0])
         self.radio.openReadingPipe(1, pipes[1])
 
-    def run(self, on, off):
-        for relay in on:
-            self.radio.write([int(relay) << 1 | 1])
-        for relay in off:
-            self.radio.write([int(relay) << 1 | 0])
-        # Do this if dynamic payload lengths ever work.
-        #if on or off:
-        #    self.radio.write([int(relay) << 1 | 0 for relay in off] + [int(relay) << 1 | 1 for relay in on])
+    def run(self):
+        try:
+            while True:
+                self.radio.startListening()
+                recv_buffer = self.recv(30)
+                self.radio.stopListening()
+                self.db.write(0, self.temperature.read())
+                self.db.write(1, self.temperature.calcTemp(recv_buffer))
+        except KeyboardInterrupt:
+            pass
+
+    def recv(self, timeout=None):
+        end = time.time() + timeout
+        pipe = [0]
+        while not self.radio.available(pipe) and (timeout is None or time.time() < end):
+            time.sleep(10000/1e6)
+        if self.radio.available(pipe):
+            recv_buffer = []
+            self.radio.read(recv_buffer)
+            return recv_buffer
+        return []
 
     def cleanup(self):
         self.radio.end()
+
+
+class DBWriter:
+    def __init__(self):
+        self.conn = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
+        self.conn.isolation_level = None
+        self.c = self.conn.cursor()
+        self.c.execute('''CREATE TABLE IF NOT EXISTS temperature (date datetime, sensor integer, temperature real)''')
+
+    def write(self, idx, value):
+        print datetime.datetime.now(), value, '        \r',
+        sys.stdout.flush()
+        self.c.execute('''insert into temperature values (?, ?, ?)''',
+                       (datetime.datetime.now(), idx, value))
+
+    def close(self):
+        self.conn.commit()
+        self.conn.close()
 
 
 if __name__ == '__main__':
@@ -106,23 +153,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p')
-    parser.add_argument('--on', '-1', action='append', default=[])
-    parser.add_argument('--off', '-0', action='append', default=[])
     args = parser.parse_args()
+    with open('/etc/default/templog') as f:
+        i = int(f.read())
     if args.pidfile:
         with open(args.pidfile, 'w') as f:
             print >>f, os.getpid()
     try:
         if args.mode == 'boiler':
-            radio = Boiler(0, 0, 25, 24, Relay(), Temperature(0, 1))
+            radio = Boiler(0, 0, 25, 24, Temperature(0, 1), Relay())
             radio.run()
         elif args.mode == 'controller':
-            radio = Controller(0, 1, 25, 24, Temperature(0, 0))
-            radio.run(args.on, args.off)
+            db = DBWriter()
+            radio = Controller(0, 1, 25, 24, Temperature(0, 0), db)
+            radio.run()
     finally:
         if radio:
             radio.cleanup()
+            GPIO.cleanup()
         if args.pidfile:
             os.unlink(args.pidfile)
-        GPIO.cleanup()
     sys.exit(0)
