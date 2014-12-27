@@ -68,12 +68,12 @@ class Boiler:
         while True:
             try:
                 self.radio.startListening()
-                recv_buffer = self.recv(30)
+                recv_buffer = self.recv(10)
                 for byte in recv_buffer:
                     pin = self.relay.pins[byte >> 1]
                     state = byte & 0x1
                     self.relay.output(pin, state)
-                self.radio.stopListening()
+                self.radio.StopListening()
                 self.radio.write(self.temperature.rawread())
             except Exception:
                 pass
@@ -108,7 +108,7 @@ class Controller:
         try:
             while True:
                 self.radio.startListening()
-                recv_buffer = self.recv(30)
+                recv_buffer = self.recv(10)
                 self.radio.stopListening()
                 self.db.write(0, self.temperature.read())
                 if recv_buffer:
