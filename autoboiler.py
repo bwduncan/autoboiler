@@ -181,3 +181,5 @@ if __name__ == '__main__':
         if args.pidfile:
             os.unlink(args.pidfile)
     sys.exit(0)
+
+# vim: set et sw=4 ts=4 sts=4 ai:
