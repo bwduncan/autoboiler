@@ -49,7 +49,7 @@ class Temperature:
         return self
 
     def __exit__(self, type, value, tb):
-        self.spi.close()
+        self.cleanup()
 
 
 class Boiler:
@@ -91,6 +91,12 @@ class Boiler:
 
     def cleanup(self):
         self.radio.end()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.cleanup()
 
 
 class Controller:
