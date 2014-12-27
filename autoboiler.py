@@ -138,6 +138,12 @@ class Controller:
         self.db.close()
         self.temperature.cleanup()
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.cleanup()
+
 
 class DBWriter:
     def __init__(self):
