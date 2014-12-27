@@ -143,8 +143,11 @@ class DBWriter:
     def write(self, idx, value):
         print ' '*idx*20, datetime.datetime.now(), idx, value, '        \r',
         sys.stdout.flush()
-        self.c.execute('''insert into temperature values (?, ?, ?)''',
-                       (datetime.datetime.now(), idx, value))
+        try:
+                self.c.execute('''insert into temperature values (?, ?, ?)''',
+                               (datetime.datetime.now(), idx, value))
+        except sqlite3.OperationalError:
+                pass
 
     def close(self):
         self.conn.commit()
