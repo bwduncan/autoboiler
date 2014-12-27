@@ -174,15 +174,13 @@ if __name__ == '__main__':
             print >>f, os.getpid()
     try:
         if args.mode == 'boiler':
-            radio = Boiler(0, 0, 25, 24, Temperature(0, 1), Relay())
-            radio.run()
+            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay()) as radio:
+                radio.run()
         elif args.mode == 'controller':
-            db = DBWriter()
-            radio = Controller(0, 1, 25, 24, Temperature(0, 0), db)
-            radio.run()
+            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter()) as radio:
+                radio.run()
     finally:
         if radio:
-            radio.cleanup()
             GPIO.cleanup()
         if args.pidfile:
             os.unlink(args.pidfile)
