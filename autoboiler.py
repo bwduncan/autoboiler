@@ -15,14 +15,14 @@ pipes = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
 
 
 class Relay:
-    def __init__(self):
-        self.pins = {0: 17, 1: 18}
+    def __init__(self, pins):
+        self.pins = pins
         for pin in self.pins.values():
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
 
     def output(self, pin, state):
         # print "setting pin", pin, state and "on" or "off"
-        GPIO.output(pin, not state)  # These devices are active-low.
+        GPIO.output(self.pins[pin], not state)  # These devices are active-low.
 
     def cleanup(self):
         pass  # this will be done later: GPIO.cleanup()
@@ -70,7 +70,7 @@ class Boiler:
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 for byte in recv_buffer:
-                    pin = self.relay.pins[byte >> 1]
+                    pin = byte >> 1
                     state = byte & 0x1
                     self.relay.output(pin, state)
                 self.radio.StopListening()
@@ -174,7 +174,7 @@ if __name__ == '__main__':
             print >>f, os.getpid()
     try:
         if args.mode == 'boiler':
-            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay()) as radio:
+            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay({0: 17, 1: 18})) as radio:
                 radio.run()
         elif args.mode == 'controller':
             with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter()) as radio:
