@@ -116,9 +116,9 @@ class Controller:
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
-                self.db.write(0, self.temperature.read())
                 if recv_buffer:
 			self.db.write(1, self.temperature.calcTemp(recv_buffer))
+                self.db.write(0, self.temperature.read())
         except KeyboardInterrupt:
             pass
 
