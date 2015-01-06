@@ -11,7 +11,7 @@ import sqlite3
 import datetime
 
 
-pipes = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
+PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
 
 
 class Relay:
@@ -37,9 +37,10 @@ class Temperature:
         return self.spi.xfer2([0, 0])
 
     def read(self):
-        return self.calcTemp(self.rawread())
+        return self.calc_temp(self.rawread())
 
-    def calcTemp(self, buf):
+    @staticmethod
+    def calc_temp(buf):
         return (((buf[0] << 8) | buf[1]) >> 3) * 0.0625
 
     def cleanup(self):
@@ -60,8 +61,8 @@ class Boiler:
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
-        self.radio.openWritingPipe(pipes[0])
-        self.radio.openReadingPipe(1, pipes[1])
+        self.radio.openWritingPipe(PIPES[0])
+        self.radio.openReadingPipe(1, PIPES[1])
         self.radio.setAutoAck(1)
 
     def run(self):
@@ -82,7 +83,7 @@ class Boiler:
         end = time.time() + timeout
         pipe = [0]
         while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-            time.sleep(10000/1e6)
+            time.sleep(10000 / 1e6)
         if self.radio.available(pipe):
             recv_buffer = []
             self.radio.read(recv_buffer)
@@ -107,8 +108,8 @@ class Controller:
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
-        self.radio.openWritingPipe(pipes[0])
-        self.radio.openReadingPipe(1, pipes[1])
+        self.radio.openWritingPipe(PIPES[0])
+        self.radio.openReadingPipe(1, PIPES[1])
 
     def run(self):
         try:
@@ -117,7 +118,7 @@ class Controller:
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
                 if recv_buffer:
-			self.db.write(1, self.temperature.calcTemp(recv_buffer))
+                    self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 self.db.write(0, self.temperature.read())
         except KeyboardInterrupt:
             pass
@@ -126,7 +127,7 @@ class Controller:
         end = time.time() + timeout
         pipe = [0]
         while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-            time.sleep(10000/1e6)
+            time.sleep(10000 / 1e6)
         if self.radio.available(pipe):
             recv_buffer = []
             self.radio.read(recv_buffer)
@@ -150,25 +151,31 @@ class DBWriter:
         self.conn = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
         self.conn.isolation_level = None
         self.c = self.conn.cursor()
-        self.c.execute('''CREATE TABLE IF NOT EXISTS temperature (date datetime, sensor integer, temperature real)''')
+        self.c.execute('''CREATE TABLE IF NOT EXISTS temperature
+                          (date datetime, sensor integer, temperature real)''')
+        self.c.execute('''CREATE INDEX IF NOT EXISTS temperature_date
+                          ON temperature(date)''')
 
     def write(self, idx, value):
-        print ' '*idx*20, datetime.datetime.now(), idx, value, '        \r',
+        line = "%s %d %f" % (datetime.datetime.now(), idx, value)
+        if idx > 0:
+            print '\033[%dC' % len(line * idx),
+        print line, '\r',
         sys.stdout.flush()
         try:
-                self.c.execute('''insert into temperature values (?, ?, ?)''',
-                               (datetime.datetime.now(), idx, value))
+            self.c.execute('''insert into temperature values (?, ?, ?)''',
+                           (datetime.datetime.now(), idx, value))
         except sqlite3.OperationalError:
-                pass
+            pass
 
     def close(self):
         self.conn.commit()
+        self.c.close()
         self.conn.close()
 
 
 if __name__ == '__main__':
     GPIO.setmode(GPIO.BCM)
-    radio = None
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p')
@@ -183,11 +190,20 @@ if __name__ == '__main__':
             with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay({0: 17, 1: 18})) as radio:
                 radio.run()
         elif args.mode == 'controller':
-            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter()) as radio:
+            sockname = '/var/lib/autoboiler/autoboiler.socket'
+            try:
+                os.unlink(sockname)
+            except OSError as e:
+                if e.errno != errno.ENOENT and os.path.exists(sockname):
+                    raise
+            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            sock.bind(sockname)
+            sock.setblocking(0)
+            sock.listen(1)
+            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock) as radio:
                 radio.run()
     finally:
-        if radio:
-            GPIO.cleanup()
+        GPIO.cleanup()
         if args.pidfile:
             os.unlink(args.pidfile)
     sys.exit(0)
