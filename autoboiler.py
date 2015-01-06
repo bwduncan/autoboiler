@@ -9,6 +9,8 @@ import argparse
 import os
 import sqlite3
 import datetime
+import errno
+import socket
 
 
 PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
@@ -101,9 +103,10 @@ class Boiler:
 
 
 class Controller:
-    def __init__(self, major, minor, ce_pin, irq_pin, temperature, db):
+    def __init__(self, major, minor, ce_pin, irq_pin, temperature, db, sock):
         self.temperature = temperature
         self.db = db
+        self.sock = sock
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.enableDynamicPayloads()
@@ -120,6 +123,25 @@ class Controller:
                 if recv_buffer:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 self.db.write(0, self.temperature.read())
+                try:
+                    conn, addr = sock.accept()
+                except socket.error as e:
+                    if e.errno != errno.EAGAIN:
+                        raise
+                else:
+                    print conn
+                    conn.settimeout(10)
+                    try:
+                        recv_line = conn.recv(1024)
+                        print repr(recv_line)
+                        if recv_line[-1] == '\n':
+                            state, pin = recv_line[:-1].split()
+                            cmd = int(pin) << 1 | (state.lower() == 'on')
+                            print "sending", cmd
+                            self.radio.write(chr(cmd))
+                    finally:
+                        print "closing", conn
+                        conn.close()
         except KeyboardInterrupt:
             pass
 
@@ -138,6 +160,7 @@ class Controller:
         self.radio.end()
         self.db.close()
         self.temperature.cleanup()
+        self.sock.close()
 
     def __enter__(self):
         return self
@@ -198,6 +221,7 @@ if __name__ == '__main__':
                     raise
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(sockname)
+            os.chmod(sockname, 0777)
             sock.setblocking(0)
             sock.listen(1)
             with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock) as radio:
