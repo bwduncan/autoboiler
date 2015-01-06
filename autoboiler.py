@@ -74,7 +74,7 @@ class Boiler:
                     pin = byte >> 1
                     state = byte & 0x1
                     self.relay.output(pin, state)
-                self.radio.StopListening()
+                self.radio.stopListening()
                 self.radio.write(self.temperature.rawread())
             except Exception:
                 pass
