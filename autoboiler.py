@@ -131,21 +131,26 @@ class Controller:
                     if e.errno != errno.EAGAIN:
                         raise
                 else:
-                    print conn
-                    conn.settimeout(10)
                     try:
+                        conn.settimeout(10)
                         recv_line = conn.recv(1024)
-                        print repr(recv_line)
-                        if recv_line[-1] == '\n':
-                            state, pin = recv_line[:-1].split()
-                            cmd = int(pin) << 1 | (state.lower() == 'on')
-                            print "sending", cmd
-                            self.radio.write(chr(cmd))
+                        state, pin = recv_line[:-1].split()
+                        cmd = int(pin) << 1 | (state.lower() == 'on')
+                        result = self.radio.write(chr(cmd))
+                        conn.sendall('%s\n' % ('OK' if result else 'timed out'))
+                        print
+                        print 'OK' if result else 'timed out'
+                    except Exception as e:
+                        print
+                        print "got invalid line:", repr(recv_line), e
+                        try:
+                            conn.sendall('invalid request\n')
+                        except socket.error:
+                            pass
                     finally:
-                        print "closing", conn
                         conn.close()
         except KeyboardInterrupt:
-            pass
+            print
 
     def recv(self, timeout=None):
         end = time.time() + timeout
