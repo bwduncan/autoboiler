@@ -66,21 +66,22 @@ class Boiler:
         self.radio.printDetails()
         self.radio.openWritingPipe(PIPES[0])
         self.radio.openReadingPipe(1, PIPES[1])
-        self.radio.setAutoAck(1)
 
     def run(self):
         while True:
             try:
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
+                self.radio.stopListening()
                 for byte in recv_buffer:
                     pin = byte >> 1
                     state = byte & 0x1
                     self.relay.output(pin, state)
-                self.radio.stopListening()
-                self.radio.write(self.temperature.rawread())
-            except Exception:
-                pass
+                result = self.radio.write(self.temperature.rawread())
+                if not result:
+                    print datetime.datetime.now(), "Did not receive ACK from controller."
+            except Exception as e:
+                print e
 
     def recv(self, timeout=None):
         end = time.time() + timeout
