@@ -61,6 +61,7 @@ class Boiler:
         self.temperature = temperature
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
+        self.radio.setChannel(96)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
         self.radio.openWritingPipe(PIPES[0])
@@ -109,6 +110,7 @@ class Controller:
         self.sock = sock
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
+        self.radio.setChannel(96)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
         self.radio.openWritingPipe(PIPES[0])
