@@ -23,7 +23,7 @@ class Relay:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
 
     def output(self, pin, state):
-        # print "setting pin", pin, state and "on" or "off"
+        print "setting pin", pin, state and "on" or "off"
         GPIO.output(self.pins[pin], not state)  # These devices are active-low.
 
     def cleanup(self):
