@@ -123,7 +123,7 @@ class Controller:
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
-                if recv_buffer:
+                if recv_buffer and len(recv_buffer) == 2:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 self.db.write(0, self.temperature.read())
                 try:
