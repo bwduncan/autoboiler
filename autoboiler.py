@@ -86,7 +86,7 @@ class Boiler:
                     query = byte >> 1 & 1
                     state = byte & 1
                     if query:
-                        self.radio.write(self.relay.state(pin))
+                        self.radio.write([self.relay.state(pin)])
                     else:
                         self.relay.output(pin, state)
                 result = self.radio.write(self.temperature.rawread())
