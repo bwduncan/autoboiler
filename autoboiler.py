@@ -20,9 +20,9 @@ class Relay:
     def __init__(self, pins):
         self.pins = pins
         self.states = []
-        for pin in self.pins.values():
+        for pin in self.pins:
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
-            self.states[pin] = 0
+            self.states.append(0)
 
     def output(self, pin, state):
         print "setting pin", pin, state and "on" or "off"
@@ -241,7 +241,7 @@ if __name__ == '__main__':
             print >>f, os.getpid()
     try:
         if args.mode == 'boiler':
-            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay({0: 17, 1: 18})) as radio:
+            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay([17, 18])) as radio:
                 radio.run()
         elif args.mode == 'controller':
             sockname = '/var/lib/autoboiler/autoboiler.socket'
