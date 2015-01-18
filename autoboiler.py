@@ -19,12 +19,18 @@ PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
 class Relay:
     def __init__(self, pins):
         self.pins = pins
+        self.states = []
         for pin in self.pins.values():
             GPIO.setup(pin, GPIO.OUT, initial=GPIO.HIGH)
+            self.states[pin] = 0
 
     def output(self, pin, state):
         print "setting pin", pin, state and "on" or "off"
+        self.states[pin] = state
         GPIO.output(self.pins[pin], not state)  # These devices are active-low.
+
+    def state(self, pin):
+        return self.states[pin]
 
     def cleanup(self):
         pass  # this will be done later: GPIO.cleanup()
@@ -76,9 +82,13 @@ class Boiler:
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
                 for byte in recv_buffer:
-                    pin = byte >> 1
-                    state = byte & 0x1
-                    self.relay.output(pin, state)
+                    pin = byte >> 2
+                    query = byte >> 1 & 1
+                    state = byte & 1
+                    if query:
+                        self.radio.write(self.relay.state(pin))
+                    else:
+                        self.relay.output(pin, state)
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
                     print datetime.datetime.now(), "Did not receive ACK from controller."
@@ -140,11 +150,20 @@ class Controller:
                         conn.settimeout(10)
                         recv_line = conn.recv(1024)
                         state, pin = recv_line[:-1].split()
-                        cmd = int(pin) << 1 | (state.lower() == 'on')
+                        cmd = int(pin) << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
                         result = self.radio.write(chr(cmd))
-                        conn.sendall('%s\n' % ('OK' if result else 'timed out'))
+                        recv_buffer = []
+                        if state.lower() == 'query':
+                            self.radio.startListening()
+                            recv_buffer = self.recv(1)
+                            self.radio.stopListening()
+                        if not recv_buffer:
+                            recv_buffer = '?'
+                        elif len(recv_buffer) == 1:
+                            recv_buffer = recv_buffer[0]
+                        conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))
                         print
-                        print 'OK' if result else 'timed out'
+                        print 'OK' if result else 'timed out', recv_line, recv_buffer
                     except Exception as e:
                         print
                         print "got invalid line:", repr(recv_line), e
@@ -158,7 +177,7 @@ class Controller:
             print
 
     def recv(self, timeout=None):
-        end = time.time() + timeout
+        end = time.time() + (timeout or 0.0)
         pipe = [0]
         while not self.radio.available(pipe) and (timeout is None or time.time() < end):
             time.sleep(10000 / 1e6)
