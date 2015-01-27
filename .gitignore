@@ -1,0 +1,10 @@
+.*.sw[po]
+*~
+*.py[co]
+
+# Ignore virtualenv boilerplate
+env/bin
+env/include
+env/local
+env/lib
+env/man
