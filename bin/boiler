@@ -1,0 +1,4 @@
+#!/bin/sh
+
+echo ${1:-missing on or off command} 0 | nc -U /var/lib/autoboiler/autoboiler.socket
+echo ${1:-missing on or off command} 0 | nc -U /var/lib/autoboiler/autoboiler.socket
