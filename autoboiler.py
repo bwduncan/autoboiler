@@ -81,10 +81,12 @@ class Boiler:
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
+                print "recv_buffer",recv_buffer,"temp",self.temperature.read()
                 for byte in recv_buffer:
                     pin = byte >> 2
                     query = byte >> 1 & 1
                     state = byte & 1
+                    print "pin",pin,"query",query,"state",state
                     if query:
                         self.radio.write([self.relay.state(pin)])
                     else:
