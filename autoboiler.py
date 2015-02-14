@@ -115,9 +115,10 @@ class Boiler:
                         self.radio.write([self.relay.state(pin)])
                     else:
                         self.relay.output(pin, state)
+                start = time.time()
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
-                    print datetime.datetime.now(), "Did not receive ACK from controller."
+                    print datetime.datetime.now(), "Did not receive ACK from controller after",time.time()-start,"seconds."
             except Exception as e:
                 print e
 
