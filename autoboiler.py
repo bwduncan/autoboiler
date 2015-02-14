@@ -11,11 +11,26 @@ import sqlite3
 import datetime
 import errno
 import socket
+from Queue import Queue, Empty
 
 
 PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
 CHANNEL = 0x55
 
+
+class Button:
+    def __init__(self, pins):
+        self.pins = pins
+        self.states = {}
+        self.events = Queue()
+        for n, pin in enumerate(self.pins):
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            GPIO.add_event_detect(pin, GPIO.FALLING, callback=self.callback, bouncetime=500)
+            self.states[pin] = n
+
+    def callback(self, channel):
+        print "queueing", self.states[channel]
+        self.events.put(self.states[channel])
 
 class Relay:
     def __init__(self, pins):
@@ -63,9 +78,10 @@ class Temperature:
 
 
 class Boiler:
-    def __init__(self, major, minor, ce_pin, irq_pin, temperature, relay):
+    def __init__(self, major, minor, ce_pin, irq_pin, temperature, relay, button):
         self.relay = relay
         self.temperature = temperature
+        self.button = button
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
@@ -83,6 +99,13 @@ class Boiler:
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
                 print "recv_buffer",recv_buffer,"temp",self.temperature.read()
+                while True:
+                    try:
+                        event = self.button.events.get_nowait()
+                    except Empty:
+                        break
+                    else:
+                        recv_buffer.append(event)  # pin = 0, query = 0, state = event
                 for byte in recv_buffer:
                     pin = byte >> 2
                     query = byte >> 1 & 1
@@ -244,7 +267,7 @@ if __name__ == '__main__':
             print >>f, os.getpid()
     try:
         if args.mode == 'boiler':
-            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay([17, 18])) as radio:
+            with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay([17, 18]), Button([23, 24])) as radio:
                 radio.run()
         elif args.mode == 'controller':
             sockname = '/var/lib/autoboiler/autoboiler.socket'
