@@ -14,6 +14,7 @@ import socket
 
 
 PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
+CHANNEL = 0x55
 
 
 class Relay:
@@ -68,7 +69,7 @@ class Boiler:
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
-        self.radio.setChannel(0)
+        self.radio.setChannel(CHANNEL)
         self.radio.setAutoAck(1)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
@@ -126,7 +127,7 @@ class Controller:
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
-        self.radio.setChannel(0)
+        self.radio.setChannel(CHANNEL)
         self.radio.setAutoAck(1)
         self.radio.enableDynamicPayloads()
         self.radio.printDetails()
