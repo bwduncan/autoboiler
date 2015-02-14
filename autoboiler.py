@@ -25,12 +25,8 @@ class Button:
         self.events = Queue()
         for n, pin in enumerate(self.pins):
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.add_event_detect(pin, GPIO.FALLING, callback=self.callback, bouncetime=500)
+            GPIO.add_event_detect(pin, GPIO.FALLING, callback=lambda channel: self.events.put(self.states[channel]), bouncetime=500)
             self.states[pin] = n
-
-    def callback(self, channel):
-        print "queueing", self.states[channel]
-        self.events.put(self.states[channel])
 
 class Relay:
     def __init__(self, pins):
