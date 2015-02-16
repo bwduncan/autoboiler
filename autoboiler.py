@@ -257,8 +257,6 @@ if __name__ == '__main__':
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p')
     args = parser.parse_args()
-    with open('/etc/default/templog') as f:
-        i = int(f.read())
     if args.pidfile:
         with open(args.pidfile, 'w') as f:
             print >>f, os.getpid()
