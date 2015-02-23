@@ -137,6 +137,8 @@ def graph_view(request):
   <text x="0" y="0" fill="red">Database error.</text>
   </svg>"""
         return Response(conn_err_msg, content_type='image/svg+xml', status_int=500)
+    finally:
+        plot.close('all')
 
 conn_err_msg = """\
 Pyramid is having a problem using your SQL database.  The problem
