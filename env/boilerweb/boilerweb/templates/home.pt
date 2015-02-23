@@ -53,6 +53,7 @@
               <li><i class="glyphicon glyphicon-cog icon-muted"></i><a href="https://github.com/Pylons/pyramid">Github Project</a></li>
               <li><i class="glyphicon glyphicon-globe icon-muted"></i><a href="irc://irc.freenode.net#pyramid">IRC Channel</a></li>
               <li><i class="glyphicon glyphicon-home icon-muted"></i><a href="http://pylonsproject.org">Pylons Project</a></li>
+            </ul>
           </div>
         </div>
         <div class="row">
@@ -66,28 +67,35 @@
 
     <script language="javascript">
     function loadStatus() {
+        var element = document.getElementById("boiler-status");
+        var refresh = ' <a onclick="loadStatus(); return false;" href="">refresh</a>';
+        element.innerHTML = 'querying...' + refresh;
         var xhReq = new XMLHttpRequest();
         xhReq.onreadystatechange=function()
           {
-          if (xhReq.readyState==4 && xhReq.status==200)
-            {
-              var reply =  xhReq.responseText.trim();
-              var element = document.getElementById("boiler-status");
-              if (reply.split(' ')[0] == 'OK') {
-                if (reply.split(' ')[1] == '0') {
-                  element.innerHTML='OFF';
-                }
-                else if (reply.split(' ')[1] == '1') {
-                  element.innerHTML='ON';
+          if (xhReq.readyState==4) {
+              if (xhReq.status==200)
+                {
+                  var reply =  xhReq.responseText.trim();
+                  if (reply.split(' ')[0] == 'OK') {
+                    if (reply.split(' ')[1] == '0') {
+                      element.innerHTML = 'OFF' + refresh;
+                    }
+                    else if (reply.split(' ')[1] == '1') {
+                      element.innerHTML = 'ON' + refresh;
+                    }
+                    else {
+                      element.innerHTML = 'unknown (' + reply + ')' + refresh;
+                    }
+                  }
+                  else {
+                    element.innerHTML = 'unknown (' + reply + ')' + refresh;
+                  }
                 }
                 else {
-                  element.innerHTML='(unknown: ' + reply + ')';
+                  element.innerHTML = 'unknown (HTTP ' + xhReq.status + ')' + refresh;
                 }
               }
-              else {
-                element.innerHTML = '(unknown: ' + reply + ')'
-              }
-            }
           }
         xhReq.open("GET", "/query", true);
         xhReq.send(null);
