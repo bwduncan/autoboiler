@@ -21,4 +21,5 @@ boilerweb/static/pyramid-16x16.png
 boilerweb/static/pyramid.png
 boilerweb/static/theme.css
 boilerweb/static/theme.min.css
-boilerweb/templates/mytemplate.pt
+boilerweb/templates/control.pt
+boilerweb/templates/home.pt
