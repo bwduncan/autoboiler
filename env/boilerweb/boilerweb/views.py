@@ -92,6 +92,8 @@ def plot_data(request, ax, sensor):
                     .filter(temperature.sensor == sensor)\
                     .filter(temperature.date >= start_time)\
                     .order_by(temperature.date).all()
+    if len(data) == 0:
+        return
     data0 = []
     x = []
     delta = 45
