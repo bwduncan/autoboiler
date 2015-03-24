@@ -144,6 +144,7 @@ class Controller:
         self.temperature = temperature
         self.db = db
         self.sock = sock
+        self.actions = []
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
@@ -162,7 +163,15 @@ class Controller:
                 self.radio.stopListening()
                 if recv_buffer and len(recv_buffer) == 2:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
-                self.db.write(0, self.temperature.read())
+                temp = self.temperature.read()
+                self.db.write(0, temp)
+                for n, (metric, value, action) in enumerate(sorted(self.actions)):
+                    if metric == 'temp' and temp >= value or \
+                            metric == 'time' and time.time() >= value:
+                        print "action matched:",metric, value, int(action)
+                        del self.actions[n]
+                        print self.radio.write(action)
+                        break
                 try:
                     conn, addr = sock.accept()
                 except socket.error as e:
@@ -172,16 +181,24 @@ class Controller:
                     try:
                         conn.settimeout(10)
                         recv_line = conn.recv(1024)
-                        state, pin = recv_line[:-1].split()
+                        args = recv_line[:-1].split(None, 2)
+                        if len(args) > 2:
+                            state, pin, arg = args
+                            if state == 'boost':
+                                metric, value = arg.split()
+                                self.actions.append((metric, float(value), chr(int(pin) << 2))) # state = off
+                                print state,metric, value, pin
+                                state = 'on' # continue to turn the boiler on
+                        else:
+                            state, pin = args
                         cmd = int(pin) << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
                         result = self.radio.write(chr(cmd))
-                        recv_buffer = []
                         if state.lower() == 'query':
                             self.radio.startListening()
                             recv_buffer = self.recv(1)
                             self.radio.stopListening()
                         if not recv_buffer:
-                            recv_buffer = '?'
+                            recv_buffer = ''
                         elif len(recv_buffer) == 1:
                             recv_buffer = recv_buffer[0]
                         conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))

@@ -44,27 +44,32 @@ def query(request):
 
 @view_config(request_method='GET', route_name='control', renderer='templates/control.pt')
 def get_control_view(request):
-    channel = state = None
+    channel = state = arg = None
     if 'channel' in request.session:
-        channel = request.session.get('channel', None)
+        channel = request.session['channel']
         del request.session['channel']
     if 'state' in request.session:
-        state = request.session.get('state', None)
+        state = request.session['state']
         del request.session['state']
-    return {'channel': channel, 'state': state}
+    if 'arg' in request.session:
+        arg = request.session['arg']
+        del request.session['arg']
+    return {'channel': channel, 'state': state, 'arg': arg}
 
 
 @view_config(request_method='POST', route_name='control')
 def post_control_view(request):
     request.session['channel'] = int(request.params['channel'])
     request.session['state'] = request.params['state']
-    if request.session['state'].lower() not in ('on', 'off'):
-        raise ValueError('state must be "on" or "off"')
+    request.session['metric'] = request.params.get('metric', '')
+    request.session['value'] = request.params.get('value', '')
+    if request.session['state'].lower() not in ('on', 'off', 'boost'):
+        raise ValueError('state must be "on", "off" or "boost"')
     with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as sock:
         sock.settimeout(10)
         try:
             sock.connect('/var/lib/autoboiler/autoboiler.socket')
-            sock.sendall('{state} {channel}\n'.format(**request.session))
+            sock.sendall('{state} {channel} {metric} {value}\n'.format(**request.session))
             reply = sock.recv(1024)
         except (socket.timeout, socket.error) as e:
             reply = e
