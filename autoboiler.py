@@ -279,6 +279,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p')
+    parser.add_argument('--sock', '-s', default='/var/lib/autoboiler/autoboiler.socket')
     args = parser.parse_args()
     if args.pidfile:
         with open(args.pidfile, 'w') as f:
@@ -288,15 +289,14 @@ if __name__ == '__main__':
             with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay([17, 18]), Button([23, 24])) as radio:
                 radio.run()
         elif args.mode == 'controller':
-            sockname = '/var/lib/autoboiler/autoboiler.socket'
             try:
-                os.unlink(sockname)
+                os.unlink(args.sock)
             except OSError as e:
                 if e.errno != errno.ENOENT and os.path.exists(sockname):
                     raise
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.bind(sockname)
-            os.chmod(sockname, 0777)
+            sock.bind(args.sock)
+            os.chmod(args.sock, 0777)
             sock.setblocking(0)
             sock.listen(1)
             with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock) as radio:
@@ -305,6 +305,12 @@ if __name__ == '__main__':
         GPIO.cleanup()
         if args.pidfile:
             os.unlink(args.pidfile)
+        if args.sock and args.mode == 'controller':
+            try:
+                os.unlink(args.sock)
+            except OSError as e:
+                if e.errno != errno.ENOENT and os.path.exists(sockname):
+                    raise
     sys.exit(0)
 
 # vim: set et sw=4 ts=4 sts=4 ai:
