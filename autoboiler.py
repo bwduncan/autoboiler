@@ -216,6 +216,10 @@ class Controller(object):
         except KeyboardInterrupt:
             print
 
+    def control(self, pin, state):
+        cmd = int(pin) << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
+        return self.radio.write(chr(cmd))
+
     def recv(self, timeout=None):
         end = time.time() + (timeout or 0.0)
         pipe = [0]
