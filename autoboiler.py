@@ -18,7 +18,7 @@ PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
 CHANNEL = 0x20
 
 
-class Button:
+class Button(object):
     def __init__(self, pins):
         self.pins = pins
         self.states = {}
@@ -28,7 +28,7 @@ class Button:
             GPIO.add_event_detect(pin, GPIO.FALLING, callback=lambda channel: self.events.put(self.states[channel]), bouncetime=500)
             self.states[pin] = n
 
-class Relay:
+class Relay(object):
     def __init__(self, pins):
         self.pins = pins
         self.states = []
@@ -48,7 +48,7 @@ class Relay:
         pass  # this will be done later: GPIO.cleanup()
 
 
-class Temperature:
+class Temperature(object):
     def __init__(self, major=0, minor=0):
         self.spi = spidev.SpiDev()
         self.spi.open(major, minor)
@@ -73,7 +73,7 @@ class Temperature:
         self.cleanup()
 
 
-class Boiler:
+class Boiler(object):
     def __init__(self, major, minor, ce_pin, irq_pin, temperature, relay, button):
         self.relay = relay
         self.temperature = temperature
@@ -139,7 +139,7 @@ class Boiler:
         self.cleanup()
 
 
-class Controller:
+class Controller(object):
     def __init__(self, major, minor, ce_pin, irq_pin, temperature, db, sock):
         self.temperature = temperature
         self.db = db
@@ -240,7 +240,7 @@ class Controller:
         self.cleanup()
 
 
-class DBWriter:
+class DBWriter(object):
     def __init__(self):
         self.conn = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
         self.conn.isolation_level = None
