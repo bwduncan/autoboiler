@@ -165,12 +165,12 @@ class Controller(object):
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 temp = self.temperature.read()
                 self.db.write(0, temp)
-                for n, (metric, value, action) in enumerate(sorted(self.actions)):
+                for n, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
                             metric == 'time' and time.time() >= value:
-                        print "action matched:",metric, value, int(action)
+                        print "action matched:",metric, value, pin, state
                         del self.actions[n]
-                        print self.radio.write(action)
+                        self.control(pin, state)
                         break
                 try:
                     conn, addr = sock.accept()
@@ -186,13 +186,15 @@ class Controller(object):
                             state, pin, arg = args
                             if state == 'boost':
                                 metric, value = arg.split()
-                                self.actions.append((metric, float(value), chr(int(pin) << 2))) # state = off
+                                if metric == 'temp' and temp > float(value):
+                                    conn.sendall('temperature already above target!\n')
+                                    continue
+                                self.actions.append((metric, float(value), pin, 'off'))
                                 print state,metric, value, pin
                                 state = 'on' # continue to turn the boiler on
                         else:
                             state, pin = args
-                        cmd = int(pin) << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
-                        result = self.radio.write(chr(cmd))
+                        result = self.control(pin, state)
                         if state.lower() == 'query':
                             self.radio.startListening()
                             recv_buffer = self.recv(1)
