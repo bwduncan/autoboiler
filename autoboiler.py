@@ -253,8 +253,8 @@ class DBWriter(object):
         self.c = self.conn.cursor()
         self.c.execute('''CREATE TABLE IF NOT EXISTS temperature
                           (date datetime, sensor integer, temperature real)''')
-        self.c.execute('''CREATE INDEX IF NOT EXISTS temperature_date
-                          ON temperature(date)''')
+        self.c.execute('''CREATE INDEX IF NOT EXISTS temperature_sensor_date
+                          ON temperature(sensor, date)''')
 
     def write(self, idx, value):
         line = "%s %d %f" % (datetime.datetime.now(), idx, value)
