@@ -35,21 +35,23 @@
             <div class="content">
               <h1><span class="font-semi-bold">Autoboiler control</span></h1>
               <p class="lead"><a class="glyphicon glyphicon-home" href="${request.route_url('home')}">Back to monitoring</a></p>
-              <p tal:condition="channel is not None and state is not None" class="lead">You asked for channel ${channel} to be turned ${state}.</p>
               <div class="lead" tal:condition="request.session.peek_flash()">
                 <span tal:omit-tag=""
                         tal:repeat="message request.session.pop_flash()">
-                        The result was: ${message}<br>
+                        ${message}<br />
                 </span>
               </div>
               <div class="row">
-                <form method="POST" onsubmit="$('#value')[0].value = $('#value_visible')[0].value; if ($('#metric')[0].value == 'time') { $('#value')[0].value *= 60;  }; return true;">
+                <form method="POST">
                   <input type="hidden" name="channel" value="0" />
                   <button class="btnGreen" name="state" value="on">Boiler on</button>
-                  <button class="btnRed" name="state" value="off">Boiler off</button><br/>
+                  <button class="btnRed" name="state" value="off">Boiler off</button>
+                </form><br/>
+                <form method="POST" onsubmit="$('#value')[0].value = $('#value_visible')[0].value; if ($('#metric')[0].value == 'time') { $('#value')[0].value *= 60;  }; return true;">
+                  <input type="hidden" name="channel" value="0" />
                   <button class="btnGreen" name="state" value="boost">Boost</button>
                   <span id="connective">to</span>
-                  <input type="text" value="20" id="value_visible" />
+                  <input type="text" value="20" id="value_visible" size="2" />
                   <select name="metric" id="metric" onchange="$('#connective')[0].innerHTML = $('#metric')[0].selectedIndex ? 'for' : 'to';">
                     <option value="temp" selected="selected">°C</option>
                     <option value="time">min</option>

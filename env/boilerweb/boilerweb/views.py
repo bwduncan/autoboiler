@@ -8,6 +8,7 @@ from sqlalchemy.exc import DBAPIError
 from .models import (
     DBSession,
     temperature,
+    channel,
     )
 
 from datetime import datetime, timedelta
@@ -44,36 +45,53 @@ def query(request):
 
 @view_config(request_method='GET', route_name='control', renderer='templates/control.pt')
 def get_control_view(request):
-    channel = state = arg = None
-    if 'channel' in request.session:
-        channel = request.session['channel']
-        del request.session['channel']
-    if 'state' in request.session:
-        state = request.session['state']
-        del request.session['state']
-    if 'arg' in request.session:
-        arg = request.session['arg']
-        del request.session['arg']
-    return {'channel': channel, 'state': state, 'arg': arg}
+    return {}
 
 
-@view_config(request_method='POST', route_name='control')
+@view_config(request_method='POST', route_name='control', renderer='templates/control.pt')
 def post_control_view(request):
-    request.session['channel'] = int(request.params['channel'])
-    request.session['state'] = request.params['state']
-    request.session['metric'] = request.params.get('metric', '')
-    request.session['value'] = request.params.get('value', '')
-    if request.session['state'].lower() not in ('on', 'off', 'boost'):
+    params = {}
+    params['channel'] = int(request.params['channel'])
+    if request.params['state'].lower() not in ('on', 'off', 'boost'):
         raise ValueError('state must be "on", "off" or "boost"')
+    if request.params['state'] == 'boost':
+        if 'value' in request.params:
+            params['value'] = float(request.params['value'])
+        else:
+            raise KeyError('value undefined')
+        if 'metric' in request.params:
+            if request.params['metric'] not in ('temp', 'time'):
+                raise ValueError('metric must be "temp" or "time"')
+            else:
+                params['metric'] = request.params['metric']
+        else:
+            raise KeyError('metric undefined')
+        params['state_human'] = 'boosted'
+        if params['metric'] == 'temp':
+            params['state_human'] += u' to {} °C'.format(params['value'])
+        elif params['metric'] == 'time':
+            params['state_human'] += ' for {} minutes'.format(params['value'] / 60.)
+    else:
+        params['state_human'] = 'turned ' + request.params['state']
+    params['state'] = request.params['state']
+    params['name'] = DBSession.query(channel.name)\
+                              .filter(channel.id==params['channel'])\
+                              .one()[0]
+
+    request.session.flash(u"You asked for {name} to be {state_human}.".format(**params))
     with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as sock:
         sock.settimeout(10)
         try:
             sock.connect('/var/lib/autoboiler/autoboiler.socket')
-            sock.sendall('{state} {channel} {metric} {value}\n'.format(**request.session))
+            if 'metric' in params and 'value' in params:
+                cmd = '{state} {channel} {metric} {value}\n'.format(**params)
+            else:
+                cmd = '{state} {channel}\n'.format(**params)
+            sock.sendall(cmd)
             reply = sock.recv(1024)
         except (socket.timeout, socket.error) as e:
             reply = e
-    request.session.flash(reply)
+    request.session.flash("The result was: " + reply)
     return HTTPFound()
 
 

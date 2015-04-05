@@ -27,3 +27,8 @@ class temperature(Base):
     temperature = Column(Integer, nullable=False)
 
 Index('temperature_date', temperature.date, unique=True, mysql_length=255)
+
+class channel(Base):
+    __tablename__ = 'channel'
+    id = Column(Integer, primary_key=True)
+    name = Column(Text, nullable=False)
