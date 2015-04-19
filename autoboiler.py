@@ -74,7 +74,7 @@ class Temperature(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type_, value, traceback):
         self.cleanup()
 
 
@@ -140,7 +140,7 @@ class Boiler(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type_, value, traceback):
         self.cleanup()
 
 
@@ -167,10 +167,12 @@ class Controller(object):
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
+
                 if recv_buffer and len(recv_buffer) == 2:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 temp = self.temperature.read()
                 self.db.write(0, temp)
+
                 for i, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
                             metric == 'time' and time.time() >= value:
@@ -259,7 +261,7 @@ class Controller(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, type, value, tb):
+    def __exit__(self, type_, value, traceback):
         self.cleanup()
 
 
