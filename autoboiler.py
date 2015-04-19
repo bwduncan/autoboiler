@@ -23,10 +23,15 @@ class Button(object):
         self.pins = pins
         self.states = {}
         self.events = Queue()
-        for n, pin in enumerate(self.pins):
+        for i, pin in enumerate(self.pins):
             GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-            GPIO.add_event_detect(pin, GPIO.FALLING, callback=lambda channel: self.events.put(self.states[channel]), bouncetime=500)
-            self.states[pin] = n
+            GPIO.add_event_detect(pin, GPIO.FALLING, callback=self.add_event,
+                                  bouncetime=500)
+            self.states[pin] = i
+
+    def add_event(self, channel):
+        self.events.put(self.states[channel])
+
 
 class Relay(object):
     def __init__(self, pins):
@@ -94,7 +99,7 @@ class Boiler(object):
                 self.radio.startListening()
                 recv_buffer = self.recv(10)
                 self.radio.stopListening()
-                print "recv_buffer",recv_buffer,"temp",self.temperature.read()
+                print "recv_buffer", recv_buffer, "temp", self.temperature.read()
                 while True:
                     try:
                         event = self.button.events.get_nowait()
@@ -106,7 +111,7 @@ class Boiler(object):
                     pin = byte >> 2
                     query = byte >> 1 & 1
                     state = byte & 1
-                    print "pin",pin,"query",query,"state",state
+                    print "pin", pin, "query", query, "state", state
                     if query:
                         self.radio.write([self.relay.state(pin)])
                     else:
@@ -114,9 +119,9 @@ class Boiler(object):
                 start = time.time()
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
-                    print datetime.datetime.now(), "Did not receive ACK from controller after",time.time()-start,"seconds."
-            except Exception as e:
-                print e
+                    print datetime.datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds."
+            except Exception as exc:
+                print exc
 
     def recv(self, timeout=None):
         end = time.time() + timeout
@@ -165,17 +170,17 @@ class Controller(object):
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
                 temp = self.temperature.read()
                 self.db.write(0, temp)
-                for n, (metric, value, pin, state) in enumerate(sorted(self.actions)):
+                for i, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
                             metric == 'time' and time.time() >= value:
-                        print "action matched:",metric, value, pin, state
-                        del self.actions[n]
+                        print "action matched:", metric, value, pin, state
+                        del self.actions[i]
                         self.control(pin, state)
                         break
                 try:
-                    conn, addr = sock.accept()
-                except socket.error as e:
-                    if e.errno != errno.EAGAIN:
+                    conn, _ = self.sock.accept()
+                except socket.error as exc:
+                    if exc.errno != errno.EAGAIN:
                         raise
                 else:
                     try:
@@ -190,8 +195,8 @@ class Controller(object):
                                     conn.sendall('temperature already above target!\n')
                                     continue
                                 self.actions.append((metric, float(value), pin, 'off'))
-                                print state,metric, value, pin
-                                state = 'on' # continue to turn the boiler on
+                                print state, metric, value, pin
+                                state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
                         result = self.control(pin, state)
@@ -206,9 +211,9 @@ class Controller(object):
                         conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))
                         print
                         print 'OK' if result else 'timed out', recv_line, recv_buffer
-                    except Exception as e:
+                    except Exception as exc:
                         print
-                        print "got invalid line:", repr(recv_line), e
+                        print "got invalid line:", repr(recv_line), exc
                         try:
                             conn.sendall('invalid request\n')
                         except socket.error:
@@ -248,12 +253,12 @@ class Controller(object):
 
 class DBWriter(object):
     def __init__(self):
-        self.conn = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
-        self.conn.isolation_level = None
-        self.c = self.conn.cursor()
-        self.c.execute('''CREATE TABLE IF NOT EXISTS temperature
+        self.con = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
+        self.con.isolation_level = None
+        self.cur = self.con.cursor()
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS temperature
                           (date datetime, sensor integer, temperature real)''')
-        self.c.execute('''CREATE INDEX IF NOT EXISTS temperature_sensor_date
+        self.cur.execute('''CREATE INDEX IF NOT EXISTS temperature_sensor_date
                           ON temperature(sensor, date)''')
 
     def write(self, idx, value):
@@ -263,18 +268,18 @@ class DBWriter(object):
         print line, '\r',
         sys.stdout.flush()
         try:
-            self.c.execute('''insert into temperature values (?, ?, ?)''',
+            self.cur.execute('''insert into temperature values (?, ?, ?)''',
                            (datetime.datetime.now(), idx, value))
         except sqlite3.OperationalError:
             pass
 
     def close(self):
-        self.conn.commit()
-        self.c.close()
-        self.conn.close()
+        self.con.commit()
+        self.cur.close()
+        self.con.close()
 
 
-if __name__ == '__main__':
+def main():
     GPIO.setmode(GPIO.BCM)
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
@@ -291,8 +296,8 @@ if __name__ == '__main__':
         elif args.mode == 'controller':
             try:
                 os.unlink(args.sock)
-            except OSError as e:
-                if e.errno != errno.ENOENT and os.path.exists(sockname):
+            except OSError as exc:
+                if exc.errno != errno.ENOENT and os.path.exists(args.sock):
                     raise
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(args.sock)
@@ -308,9 +313,12 @@ if __name__ == '__main__':
         if args.sock and args.mode == 'controller':
             try:
                 os.unlink(args.sock)
-            except OSError as e:
-                if e.errno != errno.ENOENT and os.path.exists(sockname):
+            except OSError as exc:
+                if exc.errno != errno.ENOENT and os.path.exists(args.sock):
                     raise
     sys.exit(0)
+
+if __name__ == '__main__':
+    main()
 
 # vim: set et sw=4 ts=4 sts=4 ai:
