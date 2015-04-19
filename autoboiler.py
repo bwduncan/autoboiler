@@ -193,15 +193,17 @@ class Controller(object):
                         if len(args) > 2:
                             state, pin, arg = args
                             pin = int(pin)
-                            if state == 'boost' and len(arg) == 2:
-                                metric, value = arg.split()
-                                value = float(value)
-                                if metric == 'temp' and temp >= value:
-                                    conn.sendall('temperature already above target!\n')
-                                    continue
-                                self.actions.append((metric, value, pin, 'off'))
-                                print state, metric, value, pin
-                                state = 'on'  # continue to turn the boiler on
+                            if state == 'boost':
+                                args = arg.split()
+                                if len(args) == 2:
+                                    metric, value = args
+                                    value = float(value)
+                                    if metric == 'temp' and temp >= value:
+                                        conn.sendall('temperature already above target!\n')
+                                        continue
+                                    self.actions.append((metric, value, pin, 'off'))
+                                    print state, metric, value, pin
+                                    state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
                             pin = int(pin)
