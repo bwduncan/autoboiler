@@ -145,10 +145,11 @@ class Boiler(object):
 
 
 class Controller(object):
-    def __init__(self, major, minor, ce_pin, irq_pin, temperature, db, sock):
+    def __init__(self, major, minor, ce_pin, irq_pin, temperature, db, sock, relay):
         self.temperature = temperature
         self.db = db
         self.sock = sock
+        self.relay = relay
         self.actions = []
         self.radio = nrf24.NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
@@ -205,9 +206,12 @@ class Controller(object):
                         result = self.control(pin, state)
                         recv_buffer = ''  # Need to clear buffer each time through the loop.
                         if state.lower() == 'query':
-                            self.radio.startListening()
-                            recv_buffer = self.recv(1)
-                            self.radio.stopListening()
+                            if pin < 0:
+                                recv_buffer = self.relay.state(-pin)
+                            else:
+                                self.radio.startListening()
+                                recv_buffer = self.recv(1)
+                                self.radio.stopListening()
                         if not recv_buffer:
                             recv_buffer = ''
                         elif len(recv_buffer) == 1:
@@ -228,8 +232,12 @@ class Controller(object):
             print
 
     def control(self, pin, state):
-        cmd = pin << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
-        return self.radio.write(chr(cmd))
+        if pin < 0:
+            self.relay.output(-pin - 1, state.lower() == 'on')
+            return True
+        else:
+            cmd = pin << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
+            return self.radio.write(chr(cmd))
 
     def recv(self, timeout=None):
         end = time.time() + (timeout or 0.0)
@@ -308,7 +316,7 @@ def main():
             os.chmod(args.sock, 0777)
             sock.setblocking(0)
             sock.listen(1)
-            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock) as radio:
+            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock, Relay([15])) as radio:
                 radio.run()
     finally:
         GPIO.cleanup()

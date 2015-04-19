@@ -57,7 +57,12 @@
                     <option value="time">min</option>
                   </select>
                   <input type="hidden" name="value" id="value" />
-                </form>
+                </form><br />
+                <form method="POST">
+                  <input type="hidden" name="channel" value="-1" />
+                  <button class="btnGreen" name="state" value="on">Drive on</button>
+                  <button class="btnRed" name="state" value="off">Drive off</button>
+                </form><br/>
               </div>
             </div>
           </div>
