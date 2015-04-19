@@ -78,7 +78,7 @@ def post_control_view(request):
                               .filter(channel.id==params['channel'])\
                               .one()[0]
 
-    request.session.flash(u"You asked for {name} to be {state_human}.".format(**params))
+    request.session.flash(u"You asked for the {name} to be {state_human}.".format(**params))
     with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as sock:
         sock.settimeout(10)
         try:
