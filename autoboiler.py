@@ -193,7 +193,7 @@ class Controller(object):
                         if len(args) > 2:
                             state, pin, arg = args
                             pin = int(pin)
-                            if state == 'boost':
+                            if state == 'boost' and len(arg) == 2:
                                 metric, value = arg.split()
                                 value = float(value)
                                 if metric == 'temp' and temp >= value:
