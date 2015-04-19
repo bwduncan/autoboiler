@@ -189,17 +189,21 @@ class Controller(object):
                         args = recv_line[:-1].split(None, 2)
                         if len(args) > 2:
                             state, pin, arg = args
+                            pin = int(pin)
                             if state == 'boost':
                                 metric, value = arg.split()
-                                if metric == 'temp' and temp > float(value):
+                                value = float(value)
+                                if metric == 'temp' and temp >= value:
                                     conn.sendall('temperature already above target!\n')
                                     continue
-                                self.actions.append((metric, float(value), pin, 'off'))
+                                self.actions.append((metric, value, pin, 'off'))
                                 print state, metric, value, pin
                                 state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
+                            pin = int(pin)
                         result = self.control(pin, state)
+                        recv_buffer = ''  # Need to clear buffer each time through the loop.
                         if state.lower() == 'query':
                             self.radio.startListening()
                             recv_buffer = self.recv(1)
@@ -224,7 +228,7 @@ class Controller(object):
             print
 
     def control(self, pin, state):
-        cmd = int(pin) << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
+        cmd = pin << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
         return self.radio.write(chr(cmd))
 
     def recv(self, timeout=None):
