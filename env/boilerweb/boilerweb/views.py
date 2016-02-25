@@ -13,11 +13,11 @@ from .models import (
 
 from datetime import datetime, timedelta
 import StringIO
+import socket
+from contextlib import closing
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plot
-import socket
-from contextlib import closing
 
 
 @view_config(route_name='home', renderer='templates/home.pt')
@@ -54,7 +54,7 @@ def post_control_view(request):
     params['channel'] = int(request.params['channel'])
     if request.params['state'].lower() not in ('on', 'off', 'boost'):
         raise ValueError('state must be "on", "off" or "boost"')
-    if request.params['state'] == 'boost':
+    if request.params['state'].lower() == 'boost':
         if 'value' in request.params:
             params['value'] = float(request.params['value'])
         else:
@@ -70,10 +70,12 @@ def post_control_view(request):
         if params['metric'] == 'temp':
             params['state_human'] += u' to {} °C'.format(params['value'])
         elif params['metric'] == 'time':
+            if params['value'] <= 0:
+                raise ValueError('time value must be greater than zero')
             params['state_human'] += ' for {} minutes'.format(params['value'] / 60.)
     else:
-        params['state_human'] = 'turned ' + request.params['state']
-    params['state'] = request.params['state']
+        params['state_human'] = 'turned ' + request.params['state'].lower()
+    params['state'] = request.params['state'].lower()
     params['name'] = DBSession.query(channel.name)\
                               .filter(channel.id==params['channel'])\
                               .one()[0]
@@ -91,7 +93,7 @@ def post_control_view(request):
             reply = sock.recv(1024)
         except (socket.timeout, socket.error) as e:
             reply = e
-    request.session.flash("The result was: " + reply)
+    request.session.flash("The result was: " + str(reply))
     return HTTPFound()
 
 
@@ -180,4 +182,3 @@ might be caused by one of the following things:
 After you fix the problem, please restart the Pyramid application to
 try it again.
 """
-
