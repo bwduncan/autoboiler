@@ -176,9 +176,9 @@ class Controller(object):
                 for i, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
                             metric == 'time' and time.time() >= value:
-                        print "action matched:", metric, value, pin, state
                         del self.actions[i]
-                        self.control(pin, state)
+                        result = self.control(pin, state)
+                        print '\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result
                         break
                 try:
                     conn, _ = self.sock.accept()
@@ -201,8 +201,13 @@ class Controller(object):
                                     if metric == 'temp' and temp >= value:
                                         conn.sendall('temperature already above target!\n')
                                         continue
+                                    if metric == 'time' and temp <= 0:
+                                        conn.sendall('time delta must be positive!\n')
+                                        continue
+                                    if metric == 'time':
+                                        value += time.time()
                                     self.actions.append((metric, value, pin, 'off'))
-                                    print state, metric, value, pin
+                                    print '\n', datetime.datetime.now(), "added action", state, metric, value, pin
                                     state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
@@ -210,7 +215,7 @@ class Controller(object):
                         result = self.control(pin, state)
                         recv_buffer = ''  # Need to clear buffer each time through the loop.
                         if state.lower() == 'query':
-                            if pin < 0:
+                            if pin < 0:  # A hack to control local relays.
                                 recv_buffer = self.relay.state(-pin)
                             else:
                                 self.radio.startListening()
@@ -225,9 +230,9 @@ class Controller(object):
                         print 'OK' if result else 'timed out', recv_line, recv_buffer
                     except Exception as exc:
                         print
-                        print "got invalid line:", repr(recv_line), exc
+                        print '\n', datetime.datetime.now(), "got invalid line:", repr(recv_line), exc
                         try:
-                            conn.sendall('invalid request\n')
+                            conn.sendall('invalid request: {!s}\n'.format(exc))
                         except socket.error:
                             pass
                     finally:
