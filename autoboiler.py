@@ -304,7 +304,7 @@ def main():
     GPIO.setmode(GPIO.BCM)
     parser = argparse.ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
-    parser.add_argument('--pidfile',  '-p')
+    parser.add_argument('--pidfile',  '-p', default='/var/run/autoboiler.pid')
     parser.add_argument('--sock', '-s', default='/var/lib/autoboiler/autoboiler.socket')
     args = parser.parse_args()
     if args.pidfile:
@@ -325,7 +325,7 @@ def main():
             os.chmod(args.sock, 0777)
             sock.setblocking(0)
             sock.listen(1)
-            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock, Relay([15])) as radio:
+            with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock, Relay([15, 14])) as radio:
                 radio.run()
     finally:
         GPIO.cleanup()
