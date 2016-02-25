@@ -8,10 +8,10 @@
     <meta name="author" content="Pylons Project">
     <link rel="shortcut icon" href="${request.static_url('boilerweb:static/pyramid-16x16.png')}">
 
-    <title>Alchemy Scaffold for The Pyramid Web Framework</title>
+    <title>Autoboiler control</title>
 
     <!-- Bootstrap core CSS -->
-    <link href="//oss.maxcdn.com/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://oss.maxcdn.com/libs/twitter-bootstrap/3.0.3/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom styles for this scaffold -->
     <link href="${request.static_url('boilerweb:static/theme.css')}" rel="stylesheet">
@@ -28,9 +28,6 @@
     <div class="starter-template">
       <div class="container">
         <div class="row">
-          <div class="col-md-2">
-            <img class="logo img-responsive" src="${request.static_url('boilerweb:static/pyramid.png')}" alt="pyramid web framework">
-          </div>
           <div class="col-md-10">
             <div class="content">
               <h1><span class="font-semi-bold">Autoboiler control</span></h1>
@@ -42,22 +39,22 @@
                 </span>
               </div>
               <div class="row">
-                <form method="POST">
-                  <input type="hidden" name="channel" value="0" />
-                  <button class="btnGreen" name="state" value="on">Boiler on</button>
-                  <button class="btnRed" name="state" value="off">Boiler off</button>
-                </form><br/>
                 <form method="POST" onsubmit="$('#value')[0].value = $('#value_visible')[0].value; if ($('#metric')[0].value == 'time') { $('#value')[0].value *= 60;  }; return true;">
                   <input type="hidden" name="channel" value="0" />
                   <button class="btnGreen" name="state" value="boost">Boost</button>
                   <span id="connective">to</span>
-                  <input type="text" value="20" id="value_visible" size="2" />
+                  <input type="text" value="19" id="value_visible" size="2" />
                   <select name="metric" id="metric" onchange="$('#connective')[0].innerHTML = $('#metric')[0].selectedIndex ? 'for' : 'to';">
                     <option value="temp" selected="selected">°C</option>
                     <option value="time">min</option>
                   </select>
                   <input type="hidden" name="value" id="value" />
                 </form><br />
+                <form method="POST">
+                  <input type="hidden" name="channel" value="0" />
+                  <button class="btnGreen" name="state" value="on">Boiler on</button>
+                  <button class="btnRed" name="state" value="off">Boiler off</button>
+                </form><br/>
                 <form method="POST">
                   <input type="hidden" name="channel" value="-1" />
                   <button class="btnGreen" name="state" value="on">Drive on</button>
@@ -75,6 +72,7 @@
               <li><i class="glyphicon glyphicon-cog icon-muted"></i><a href="https://github.com/Pylons/pyramid">Github Project</a></li>
               <li><i class="glyphicon glyphicon-globe icon-muted"></i><a href="irc://irc.freenode.net#pyramid">IRC Channel</a></li>
               <li><i class="glyphicon glyphicon-home icon-muted"></i><a href="http://pylonsproject.org">Pylons Project</a></li>
+            </ul>
           </div>
         </div>
         <div class="row">
@@ -89,7 +87,7 @@
     <!-- Bootstrap core JavaScript
     ================================================== -->
     <!-- Placed at the end of the document so the pages load faster -->
-    <script src="//oss.maxcdn.com/libs/jquery/1.10.2/jquery.min.js"></script>
-    <script src="//oss.maxcdn.com/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
+    <script src="https://oss.maxcdn.com/libs/jquery/1.10.2/jquery.min.js"></script>
+    <script src="https://oss.maxcdn.com/libs/twitter-bootstrap/3.0.3/js/bootstrap.min.js"></script>
   </body>
 </html>
