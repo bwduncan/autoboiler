@@ -97,12 +97,6 @@ def post_control_view(request):
     return HTTPFound()
 
 
-def tridian(mylist):
-    sorts = sorted(mylist)
-    tri = len(sorts) / 3
-    return sum(sorts[tri:2 * tri]) / float(tri)
-
-
 def index_min(values):
     return min(range(len(values)), key=values.__getitem__)
 
@@ -115,17 +109,15 @@ def plot_data(request, ax, sensor):
     start_time = datetime.now() - timedelta(days=float(request.params.get('days', 1)))
     data = DBSession.query(temperature.date, temperature.temperature)\
                     .filter(temperature.sensor == sensor)\
-                    .filter(temperature.date >= start_time)\
+                    .filter(temperature.date > start_time)\
                     .order_by(temperature.date).all()
-    if len(data) == 0:
-        return
     data0 = []
     x = []
-    delta = 45
-    for i, d in enumerate(data):
-        if i >= delta and i < len(data) - delta:
-            data0 += [tridian(x.temperature for x in data[i - delta:i + delta + 1])]
-            x += [d.date]
+    for d in data:
+        data0.append(d.temperature)
+        x.append(d.date)
+    if len(data0) == 0:  # Still no data, there really is nothing to draw
+        return
     line_colours = ['r-', 'b-', 'g-']
     ax.plot_date(matplotlib.dates.date2num(x), data0, line_colours[sensor], xdate=True)
     ax.text(x[0], data0[0], u'%2.1f°C' % data0[0])

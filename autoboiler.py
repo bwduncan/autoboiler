@@ -12,6 +12,7 @@ import datetime
 import errno
 import socket
 import select
+from collections import deque, defaultdict
 from Queue import Queue, Empty
 
 
@@ -280,27 +281,52 @@ class Controller(object):
         self.cleanup()
 
 
+def tridian(mylist, sum=sum, sorted=sorted):
+    """Optimised median function. Assumes delta is 21."""
+    return sum(sorted(mylist)[7:14]) / 7.
+
+
+def tridian_slow(mylist):
+    """Unoptimised median function."""
+    sorts = sorted(mylist)
+    tri = len(sorts) / 3
+    return sum(sorts[tri:2 * tri]) / float(tri)
+
+
 class DBWriter(object):
     def __init__(self):
+        self.buf = defaultdict(deque)
         self.con = sqlite3.connect('/var/lib/autoboiler/autoboiler.sqlite3')
         self.con.isolation_level = None
         self.cur = self.con.cursor()
         self.cur.execute('''CREATE TABLE IF NOT EXISTS temperature
                           (date datetime, sensor integer, temperature real)''')
+        self.cur.execute('''CREATE TABLE IF NOT EXISTS temperature_raw
+                          (date datetime, sensor integer, temperature real)''')
+        self.cur.execute('''CREATE INDEX IF NOT EXISTS temperature_raw_sensor_date
+                          ON temperature_raw(sensor, date)''')
         self.cur.execute('''CREATE INDEX IF NOT EXISTS temperature_sensor_date
                           ON temperature(sensor, date)''')
 
     def write(self, idx, value):
-        line = "%s %d %f" % (datetime.datetime.now(), idx, value)
+        data = (datetime.datetime.now(), idx, value)
+        line = "%s %d %f" % data
         if idx > 0:
-            print '\033[%dC' % len(line * idx),
+            print '\033[%dC' % len(line) * idx,
         print line, '\r',
         sys.stdout.flush()
+        self.buf[idx].append(data)
         try:
-            self.cur.execute('''insert into temperature values (?, ?, ?)''',
-                           (datetime.datetime.now(), idx, value))
-        except sqlite3.OperationalError:
-            pass
+            self.cur.execute('insert into temperature_raw values (?, ?, ?)',
+                             data)
+            if len(self.buf[idx]) >= 21:
+                # Take the middle-ish value to use for the time.
+                data = (self.buf[idx][10][0], idx, tridian([x[2] for x in self.buf[idx]]))
+                self.buf[idx].popleft()
+                self.cur.execute('insert into temperature values (?, ?, ?)',
+                                 data)
+        except sqlite3.OperationalError as exc:
+            print '\n', exc
 
     def close(self):
         self.con.commit()
