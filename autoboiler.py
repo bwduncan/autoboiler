@@ -11,6 +11,7 @@ import sqlite3
 import datetime
 import errno
 import socket
+import select
 from Queue import Queue, Empty
 
 
@@ -96,9 +97,7 @@ class Boiler(object):
     def run(self):
         while True:
             try:
-                self.radio.startListening()
                 recv_buffer = self.recv(10)
-                self.radio.stopListening()
                 print "recv_buffer", recv_buffer, "temp", self.temperature.read()
                 while True:
                     try:
@@ -126,13 +125,17 @@ class Boiler(object):
     def recv(self, timeout=None):
         end = time.time() + timeout
         pipe = [0]
-        while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-            time.sleep(10000 / 1e6)
-        if self.radio.available(pipe):
-            recv_buffer = []
-            self.radio.read(recv_buffer)
-            return recv_buffer
-        return []
+        self.radio.startListening()
+        try:
+            while not self.radio.available(pipe) and (timeout is None or time.time() < end):
+                time.sleep(10000 / 1e6)
+            if self.radio.available(pipe):
+                recv_buffer = []
+                self.radio.read(recv_buffer)
+                return recv_buffer
+            return []
+        finally:
+            self.radio.stopListening()
 
     def cleanup(self):
         self.radio.end()
@@ -164,9 +167,7 @@ class Controller(object):
     def run(self):
         try:
             while True:
-                self.radio.startListening()
-                recv_buffer = self.recv(10)
-                self.radio.stopListening()
+                recv_buffer = self.recv(10, rfds=[self.sock])
 
                 if recv_buffer and len(recv_buffer) == 2:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
@@ -218,9 +219,7 @@ class Controller(object):
                             if pin < 0:  # A hack to control local relays.
                                 recv_buffer = self.relay.state(-pin)
                             else:
-                                self.radio.startListening()
                                 recv_buffer = self.recv(1)
-                                self.radio.stopListening()
                         if not recv_buffer:
                             recv_buffer = ''
                         elif len(recv_buffer) == 1:
@@ -248,16 +247,25 @@ class Controller(object):
             cmd = pin << 2 | (state.lower() == 'query') << 1 | (state.lower() == 'on')
             return self.radio.write(chr(cmd))
 
-    def recv(self, timeout=None):
+    def recv(self, timeout=None, rfds=None):
+        if rfds is None:
+            rfds = []
         end = time.time() + (timeout or 0.0)
         pipe = [0]
-        while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-            time.sleep(10000 / 1e6)
-        if self.radio.available(pipe):
-            recv_buffer = []
-            self.radio.read(recv_buffer)
-            return recv_buffer
-        return []
+        self.radio.startListening()
+        try:
+            while not self.radio.available(pipe) and (timeout is None or time.time() < end):
+                #time.sleep(10000 / 1e6)
+                r, _, _ = select.select(rfds, [], [], 10000 / 1e6)
+                if r:
+                    return []
+            if self.radio.available(pipe):
+                recv_buffer = []
+                self.radio.read(recv_buffer)
+                return recv_buffer
+            return []
+        finally:
+            self.radio.stopListening()
 
     def cleanup(self):
         self.radio.end()
