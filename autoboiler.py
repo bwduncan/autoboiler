@@ -181,6 +181,9 @@ class Controller(object):
                         del self.actions[i]
                         result = self.control(pin, state)
                         print '\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result
+                        if not result:
+                            print 'action failed, will retry in 10s.'
+                            self.actions.append((metric, value, pin, state))
                         break
                 try:
                     conn, _ = self.sock.accept()
