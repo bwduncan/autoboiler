@@ -12,7 +12,7 @@ import datetime
 import errno
 import socket
 import select
-from collections import deque, defaultdict
+from collections import deque, defaultdict, namedtuple
 from Queue import Queue, Empty
 
 
@@ -148,6 +148,8 @@ class Boiler(object):
         self.cleanup()
 
 
+action = namedtuple('action', 'metric value pin state')
+
 class Controller(object):
     def __init__(self, major, minor, ce_pin, irq_pin, temperature, db, sock, relay):
         self.temperature = temperature
@@ -183,7 +185,7 @@ class Controller(object):
                         print '\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result
                         if not result:
                             print 'action failed, will retry in 10s.'
-                            self.actions.append((metric, value, pin, state))
+                            self.actions.append(action(metric, value, pin, state))
                         break
                 try:
                     conn, _ = self.sock.accept()
@@ -211,7 +213,7 @@ class Controller(object):
                                         continue
                                     if metric == 'time':
                                         value += time.time()
-                                    self.actions.append((metric, value, pin, 'off'))
+                                    self.actions.append(action(metric, value, pin, 'off'))
                                     print '\n', datetime.datetime.now(), "added action", state, metric, value, pin
                                     state = 'on'  # continue to turn the boiler on
                         else:
