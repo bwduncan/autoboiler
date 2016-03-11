@@ -224,6 +224,8 @@ class Controller(object):
                                 recv_buffer = self.relay.state(-pin)
                             else:
                                 recv_buffer = self.recv(1)
+                        elif state.lower() == 'queryactions':
+                            recv_buffer = str(self.actions)
                         if not recv_buffer:
                             recv_buffer = ''
                         elif len(recv_buffer) == 1:

@@ -31,6 +31,18 @@ def my_view(request):
     return {'zero': zero, 'one': one, 'project': 'boilerweb'}
 
 
+@view_config(route_name='queryactions')
+def queryactions(request):
+    with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as sock:
+        sock.settimeout(10)
+        try:
+            sock.connect('/var/lib/autoboiler/autoboiler.socket')
+            sock.sendall('queryactions\n')
+            return Response(sock.recv(1024))
+        except (socket.timeout, socket.error) as e:
+            return Response(str(e))
+
+
 @view_config(route_name='query')
 def query(request):
     with closing(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)) as sock:

@@ -22,5 +22,6 @@ def main(global_config, **settings):
     config.add_route('graph', '/graph')
     config.add_route('control', '/control')
     config.add_route('query', '/query')
+    config.add_route('queryactions', '/query')
     config.scan()
     return config.make_wsgi_app()
