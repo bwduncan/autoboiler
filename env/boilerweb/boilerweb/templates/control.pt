@@ -50,16 +50,13 @@
                   </select>
                   <input type="hidden" name="value" id="value" />
                 </form><br />
-                <form method="POST">
-                  <input type="hidden" name="channel" value="0" />
-                  <button class="btnGreen" name="state" value="on">Boiler on</button>
-                  <button class="btnRed" name="state" value="off">Boiler off</button>
-                </form><br/>
-                <form method="POST">
-                  <input type="hidden" name="channel" value="-1" />
-                  <button class="btnGreen" name="state" value="on">Drive on</button>
-                  <button class="btnRed" name="state" value="off">Drive off</button>
-                </form><br/>
+                <div tal:repeat="channel channels" tal:omit-tag="">
+                  <form method="POST">
+                    <input type="hidden" name="channel" value="${channel.id}" />
+                    <button class="btnGreen" name="state" value="on">${channel.name} on</button>
+                    <button class="btnRed" name="state" value="off">${channel.name} off</button>
+                  </form><br/>
+                </div>
               </div>
             </div>
           </div>

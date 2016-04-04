@@ -57,7 +57,7 @@ def query(request):
 
 @view_config(request_method='GET', route_name='control', renderer='templates/control.pt')
 def get_control_view(request):
-    return {}
+    return {'channels': DBSession.query(channel).order_by(channel.name).all()}
 
 
 @view_config(request_method='POST', route_name='control', renderer='templates/control.pt')
