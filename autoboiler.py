@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import RPi.GPIO as GPIO
 import nrf24
 import sys
@@ -13,7 +14,10 @@ import errno
 import socket
 import select
 from collections import deque, defaultdict, namedtuple
-from Queue import Queue, Empty
+try:
+    from queue import Queue, Empty
+except ImportError:
+    from Queue import Queue, Empty
 
 
 PIPES = ([0xe7, 0xe7, 0xe7, 0xe7, 0xe7], [0xc2, 0xc2, 0xc2, 0xc2, 0xc2])
@@ -44,7 +48,7 @@ class Relay(object):
             self.states.append(0)
 
     def output(self, pin, state):
-        print "setting pin", pin, state and "on" or "off"
+        print("setting pin", pin, state and "on" or "off")
         self.states[pin] = state
         GPIO.output(self.pins[pin], not state)  # These devices are active-low.
 
@@ -99,7 +103,7 @@ class Boiler(object):
         while True:
             try:
                 recv_buffer = self.recv(10)
-                print "recv_buffer", recv_buffer, "temp", self.temperature.read()
+                print("recv_buffer", recv_buffer, "temp", self.temperature.read())
                 while True:
                     try:
                         event = self.button.events.get_nowait()
@@ -111,7 +115,7 @@ class Boiler(object):
                     pin = byte >> 2
                     query = byte >> 1 & 1
                     state = byte & 1
-                    print "pin", pin, "query", query, "state", state
+                    print("pin", pin, "query", query, "state", state)
                     if query:
                         self.radio.write([self.relay.state(pin)])
                     else:
@@ -119,9 +123,9 @@ class Boiler(object):
                 start = time.time()
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
-                    print datetime.datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds."
+                    print(datetime.datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds.")
             except Exception as exc:
-                print exc
+                print(exc)
 
     def recv(self, timeout=None):
         end = time.time() + timeout
@@ -182,9 +186,9 @@ class Controller(object):
                             metric == 'time' and time.time() >= value:
                         del self.actions[i]
                         result = self.control(pin, state)
-                        print '\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result
+                        print('\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result)
                         if not result:
-                            print 'action failed, will retry in 10s.'
+                            print('action failed, will retry in 10s.')
                             self.actions.append(action(metric, value, pin, state))
                         break
                 try:
@@ -214,7 +218,7 @@ class Controller(object):
                                     if metric == 'time':
                                         value += time.time()
                                     self.actions.append(action(metric, value, pin, 'off'))
-                                    print '\n', datetime.datetime.now(), "added action", state, metric, value, pin
+                                    print('\n', datetime.datetime.now(), "added action", state, metric, value, pin)
                                     state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
@@ -235,11 +239,11 @@ class Controller(object):
                         elif len(recv_buffer) == 1:
                             recv_buffer = recv_buffer[0]
                         conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))
-                        print
-                        print 'OK' if result else 'timed out', recv_line, recv_buffer
+                        print()
+                        print('OK' if result else 'timed out', recv_line, recv_buffer)
                     except Exception as exc:
-                        print
-                        print '\n', datetime.datetime.now(), "got invalid line:", repr(recv_line), exc
+                        print()
+                        print('\n', datetime.datetime.now(), "got invalid line:", repr(recv_line), exc)
                         try:
                             conn.sendall('invalid request: {!s}\n'.format(exc))
                         except socket.error:
@@ -247,7 +251,7 @@ class Controller(object):
                     finally:
                         conn.close()
         except KeyboardInterrupt:
-            print
+            print()
 
     def state(self, pin):
         if pin < 0:
@@ -328,8 +332,8 @@ class DBWriter(object):
         data = (datetime.datetime.now(), idx, value)
         line = "%s %d %f" % data
         if idx > 0:
-            print '\033[%dC' % len(line) * idx,
-        print line, '\r',
+            print('\033[%dC' % len(line) * idx, end='')
+        print(line, '\r', end='')
         sys.stdout.flush()
         self.buf[idx].append(data)
         try:
@@ -342,7 +346,7 @@ class DBWriter(object):
                 self.cur.execute('insert into temperature values (?, ?, ?)',
                                  data)
         except sqlite3.OperationalError as exc:
-            print '\n', exc
+            print('\n', exc)
 
     def close(self):
         self.con.commit()
@@ -359,7 +363,7 @@ def main():
     args = parser.parse_args()
     if args.pidfile:
         with open(args.pidfile, 'w') as f:
-            print >>f, os.getpid()
+            print(os.getpid(), file=f)
     try:
         if args.mode == 'boiler':
             with Boiler(0, 0, 25, 24, Temperature(0, 1), Relay([17, 18]), Button([23, 24])) as radio:
@@ -372,7 +376,7 @@ def main():
                     raise
             sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             sock.bind(args.sock)
-            os.chmod(args.sock, 0777)
+            os.chmod(args.sock, 0o777)
             sock.setblocking(0)
             sock.listen(1)
             with Controller(0, 1, 25, 24, Temperature(0, 0), DBWriter(), sock, Relay([15, 14])) as radio:
