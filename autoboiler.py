@@ -219,13 +219,15 @@ class Controller(object):
                         else:
                             state, pin = args
                             pin = int(pin)
-                        result = self.control(pin, state)
+                        if state.lower() in ('on', 'off'):
+                            result = self.control(pin, state)
+                        elif state.lower() == 'query':
+                            result = self.state(pin)
+                        else:
+                            result = True
                         recv_buffer = ''  # Need to clear buffer each time through the loop.
                         if state.lower() == 'query':
-                            if pin < 0:  # A hack to control local relays.
-                                recv_buffer = self.relay.state(-pin)
-                            else:
-                                recv_buffer = self.recv(1)
+                            recv_buffer = self.state(pin)
                         elif state.lower() == 'queryactions':
                             recv_buffer = str(self.actions)
                         if not recv_buffer:
@@ -246,6 +248,13 @@ class Controller(object):
                         conn.close()
         except KeyboardInterrupt:
             print
+
+    def state(self, pin):
+        if pin < 0:
+            return self.relay.state(-pin)
+        else:
+            if self.control(pin, 'query'):
+                return self.recv(1)
 
     def control(self, pin, state):
         if pin < 0:
@@ -378,9 +387,9 @@ def main():
             except OSError as exc:
                 if exc.errno != errno.ENOENT and os.path.exists(args.sock):
                     raise
-    sys.exit(0)
+    return 0
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())
 
 # vim: set et sw=4 ts=4 sts=4 ai:
