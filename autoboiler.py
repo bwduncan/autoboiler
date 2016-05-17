@@ -2,17 +2,17 @@
 
 from __future__ import print_function
 import RPi.GPIO as GPIO
-import nrf24
+from nrf24 import NRF24
 import sys
-import time
-import spidev
-import argparse
+from time import sleep, time
+from spidev import SpiDev
+from argparse import ArgumentParser
 import os
 import sqlite3
-import datetime
+from datetime import datetime
 import errno
 import socket
-import select
+from select import select
 from collections import deque, defaultdict, namedtuple
 try:
     from queue import Queue, Empty
@@ -61,7 +61,7 @@ class Relay(object):
 
 class Temperature(object):
     def __init__(self, major=0, minor=0):
-        self.spi = spidev.SpiDev()
+        self.spi = SpiDev()
         self.spi.open(major, minor)
 
     def rawread(self):
@@ -89,7 +89,7 @@ class Boiler(object):
         self.relay = relay
         self.temperature = temperature
         self.button = button
-        self.radio = nrf24.NRF24()
+        self.radio = NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
         self.radio.setChannel(CHANNEL)
@@ -120,20 +120,20 @@ class Boiler(object):
                         self.radio.write([self.relay.state(pin)])
                     else:
                         self.relay.output(pin, state)
-                start = time.time()
+                start = time()
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
-                    print(datetime.datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds.")
+                    print(datetime.now(), "Did not receive ACK from controller after", time() - start, "seconds.")
             except Exception as exc:
                 print(exc)
 
     def recv(self, timeout=None):
-        end = time.time() + timeout
+        end = time() + timeout
         pipe = [0]
         self.radio.startListening()
         try:
-            while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-                time.sleep(10000 / 1e6)
+            while not self.radio.available(pipe) and (timeout is None or time() < end):
+                sleep(10000 / 1e6)
             if self.radio.available(pipe):
                 recv_buffer = []
                 self.radio.read(recv_buffer)
@@ -161,7 +161,7 @@ class Controller(object):
         self.sock = sock
         self.relay = relay
         self.actions = []
-        self.radio = nrf24.NRF24()
+        self.radio = NRF24()
         self.radio.begin(major, minor, ce_pin, irq_pin)
         self.radio.setDataRate(self.radio.BR_250KBPS)
         self.radio.setChannel(CHANNEL)
@@ -183,10 +183,10 @@ class Controller(object):
 
                 for i, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
-                            metric == 'time' and time.time() >= value:
+                            metric == 'time' and time() >= value:
                         del self.actions[i]
                         result = self.control(pin, state)
-                        print('\n', datetime.datetime.now(), "action matched:", metric, value, pin, state, "=>", result)
+                        print('\n', datetime.now(), "action matched:", metric, value, pin, state, "=>", result)
                         if not result:
                             print('action failed, will retry in 10s.')
                             self.actions.append(action(metric, value, pin, state))
@@ -216,9 +216,9 @@ class Controller(object):
                                         conn.sendall('time delta must be positive!\n')
                                         continue
                                     if metric == 'time':
-                                        value += time.time()
+                                        value += time()
                                     self.actions.append(action(metric, value, pin, 'off'))
-                                    print('\n', datetime.datetime.now(), "added action", state, metric, value, pin)
+                                    print('\n', datetime.now(), "added action", state, metric, value, pin)
                                     state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
@@ -243,7 +243,7 @@ class Controller(object):
                         print('OK' if result else 'timed out', recv_line, recv_buffer)
                     except Exception as exc:
                         print()
-                        print('\n', datetime.datetime.now(), "got invalid line:", repr(recv_line), exc)
+                        print('\n', datetime.now(), "got invalid line:", repr(recv_line), exc)
                         try:
                             conn.sendall('invalid request: {!s}\n'.format(exc))
                         except socket.error:
@@ -271,13 +271,13 @@ class Controller(object):
     def recv(self, timeout=None, rfds=None):
         if rfds is None:
             rfds = []
-        end = time.time() + (timeout or 0.0)
+        end = time() + (timeout or 0.0)
         pipe = [0]
         self.radio.startListening()
         try:
-            while not self.radio.available(pipe) and (timeout is None or time.time() < end):
-                #time.sleep(10000 / 1e6)
-                r, _, _ = select.select(rfds, [], [], 10000 / 1e6)
+            while not self.radio.available(pipe) and (timeout is None or time() < end):
+                #sleep(10000 / 1e6)
+                r, _, _ = select(rfds, [], [], 10000 / 1e6)
                 if r:
                     return []
             if self.radio.available(pipe):
@@ -329,7 +329,7 @@ class DBWriter(object):
                           ON temperature(sensor, date)''')
 
     def write(self, idx, value):
-        data = (datetime.datetime.now(), idx, value)
+        data = (datetime.now(), idx, value)
         line = "%s %d %f" % data
         if idx > 0:
             print('\033[%dC' % len(line) * idx, end='')
@@ -356,7 +356,7 @@ class DBWriter(object):
 
 def main():
     GPIO.setmode(GPIO.BCM)
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p', default='/var/run/autoboiler.pid')
     parser.add_argument('--sock', '-s', default='/var/lib/autoboiler/autoboiler.socket')
