@@ -173,13 +173,16 @@ class Controller(object):
 
     def run(self):
         try:
+            tick = time()
             while True:
                 recv_buffer = self.recv(10, rfds=[self.sock])
 
                 if recv_buffer and len(recv_buffer) == 2:
                     self.db.write(1, self.temperature.calc_temp(recv_buffer))
-                temp = self.temperature.read()
-                self.db.write(0, temp)
+                if tick < time():
+                    tick = time() + 10
+                    temp = self.temperature.read()
+                    self.db.write(0, temp)
 
                 for i, (metric, value, pin, state) in enumerate(sorted(self.actions)):
                     if metric == 'temp' and temp >= value or \
