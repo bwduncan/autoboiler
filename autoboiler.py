@@ -228,22 +228,20 @@ class Controller(object):
                             pin = int(pin)
                         if state.lower() in ('on', 'off'):
                             result = self.control(pin, state)
-                        elif state.lower() == 'query':
-                            result = self.state(pin)
-                        else:
-                            result = True
                         recv_buffer = ''  # Need to clear buffer each time through the loop.
                         if state.lower() == 'query':
-                            recv_buffer = self.state(pin)
+                            result, recv_buffer = self.state(pin)
                         elif state.lower() == 'queryactions':
+                            result = True
                             recv_buffer = str(self.actions)
-                        if not recv_buffer:
-                            recv_buffer = ''
-                        elif len(recv_buffer) == 1:
-                            recv_buffer = recv_buffer[0]
+                        if isinstance(recv_buffer, list):
+                            if not recv_buffer:
+                                recv_buffer = ''
+                            elif len(recv_buffer) == 1:
+                                recv_buffer = recv_buffer[0]
                         conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))
                         print()
-                        print('OK' if result else 'timed out', recv_line, recv_buffer)
+                        print('OK' if result else 'timed out', repr(recv_line), repr(recv_buffer))
                     except Exception as exc:
                         print()
                         print('\n', datetime.now(), "got invalid line:", repr(recv_line), exc)
@@ -258,10 +256,11 @@ class Controller(object):
 
     def state(self, pin):
         if pin < 0:
-            return self.relay.state(-pin)
+            return True, self.relay.state(-pin - 1)
         else:
             if self.control(pin, 'query'):
-                return self.recv(1)
+                recv_buffer = self.recv(1)
+                return len(recv_buffer) > 0, recv_buffer
 
     def control(self, pin, state):
         if pin < 0:
