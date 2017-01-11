@@ -348,13 +348,17 @@ class DBWriter(object):
         try:
             self.cur.execute('insert into temperature_raw values (?, ?, ?)',
                              data)
+            res = requests.post('http://emonpi/emoncms/input/post.json?node=1&apikey=74f0ab98df349fdfd17559978fb1d4b9',
+                          data={'data': json.dumps({'T{}raw'.format(idx): value})})
             if len(self.buf[idx]) >= 21:
                 # Take the middle-ish value to use for the time.
                 data = (self.buf[idx][10][0], idx, tridian([x[2] for x in self.buf[idx]]))
                 self.buf[idx].popleft()
                 self.cur.execute('insert into temperature values (?, ?, ?)',
                                  data)
-        except sqlite3.OperationalError as exc:
+                requests.post('http://emonpi/emoncms/input/post.json?node=1&apikey=74f0ab98df349fdfd17559978fb1d4b9',
+                              data={'data': json.dumps({'T{}'.format(idx): value})})
+        except (requests.exceptions.ConnectionError, sqlite3.OperationalError) as exc:
             print('\n', exc)
 
     def close(self):
