@@ -127,7 +127,7 @@ class Boiler(object):
                 start = time()
                 result = self.radio.write(self.temperature.rawread())
                 if not result:
-                    print(datetime.datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds:", self.radio.last_error)
+                    print(datetime.now(), "Did not receive ACK from controller after", time.time() - start, "seconds:", self.radio.last_error)
                 arc = self.radio.read_register(self.radio.OBSERVE_TX)
                 if result and arc & 0xf != 0:
                     print("Last TX succeeded in", arc & 0xf, "retransmissions.")
