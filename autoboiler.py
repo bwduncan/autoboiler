@@ -218,7 +218,7 @@ class Controller(object):
                                     if metric == 'temp' and temp >= value:
                                         conn.sendall('temperature already above target!\n')
                                         continue
-                                    if metric == 'time' and temp <= 0:
+                                    if metric == 'time' and value <= 0:
                                         conn.sendall('time delta must be positive!\n')
                                         continue
                                     if metric == 'time':
