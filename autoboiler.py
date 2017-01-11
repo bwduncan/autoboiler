@@ -266,6 +266,8 @@ class Controller(object):
             if self.control(pin, 'query'):
                 recv_buffer = self.recv(1)
                 return len(recv_buffer) > 0, recv_buffer
+            print("control returned not True: %r" % self.radio.last_error)
+            return False, []
 
     def control(self, pin, state):
         if pin < 0:
