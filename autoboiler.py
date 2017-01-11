@@ -344,7 +344,12 @@ def main():
     parser.add_argument('--mode', required=True, choices=['boiler', 'controller'])
     parser.add_argument('--pidfile',  '-p', default='/var/run/autoboiler.pid')
     parser.add_argument('--sock', '-s', default='/var/lib/autoboiler/autoboiler.socket')
+    parser.add_argument('--output', '-o')
     args = parser.parse_args()
+    if args.output:
+        f = open(args.output, 'a+')
+        if f:
+            sys.stdout = f
     if args.pidfile:
         with open(args.pidfile, 'w') as f:
             print >>f, os.getpid()
