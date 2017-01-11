@@ -10,6 +10,7 @@ from datetime import datetime
 import errno
 import socket
 from select import select
+import traceback
 from collections import deque, defaultdict, namedtuple
 try:
     from queue import Queue, Empty
@@ -224,7 +225,7 @@ class Controller(object):
                                     if metric == 'time':
                                         value += time()
                                     self.actions.append(action(metric, value, pin, 'off'))
-                                    print('\n', datetime.now(), "added action", state, metric, value, pin)
+                                    print('\n', datetime.now(), "added action", self.actions)
                                     state = 'on'  # continue to turn the boiler on
                         else:
                             state, pin = args
@@ -243,11 +244,12 @@ class Controller(object):
                             elif len(recv_buffer) == 1:
                                 recv_buffer = recv_buffer[0]
                         conn.sendall('%s %s\n' % ('OK' if result else 'timed out', recv_buffer))
-                        print()
-                        print('OK' if result else 'timed out', repr(recv_line), repr(recv_buffer))
                     except Exception as exc:
                         print()
-                        print('\n', datetime.now(), "got invalid line:", repr(recv_line), exc)
+                        print('\n', datetime.now(), "Exception while processing:", repr(recv_line))
+                        traceback.print_exc()
+                        if self.radio.last_error:
+                            print("Last radio error: %r" % self.radio.last_error)
                         try:
                             conn.sendall('invalid request: {!s}\n'.format(exc))
                         except socket.error:
